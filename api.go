@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+        "os/exec"
 	"time"
 
 	gh "github.com/gorilla/handlers"
@@ -54,11 +55,20 @@ func main() {
 
 	corsHandler := gh.CORS(gh.AllowCredentials(), gh.AllowedHeaders([]string{"x-requested-with", "content-type"}), gh.AllowedOrigins([]string{"*"}))
 
+        cmd := exec.Command("docker", "ps", "--filter label=com.docker.swarm.service.name=pwd", "--format '{{.Names}}'")
+        var out bytes.Buffer
+        cmd.Stdout = &out
+        err := cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+        pwd := out.String()
+
 	// Specific routes
-	r.Host(fmt.Sprintf("{subdomain:.*}pwd{node:%s}-{port:%s}.{tld:.*}", config.PWDHostnameRegex, config.PortRegex)).Handler(tcpHandler)
-	r.Host(fmt.Sprintf("{subdomain:.*}pwd{node:%s}.{tld:.*}", config.PWDHostnameRegex)).Handler(tcpHandler)
-	r.Host(fmt.Sprintf("pwd{alias:%s}-{session:%s}-{port:%s}.{tld:.*}", config.AliasnameRegex, config.AliasSessionRegex, config.PortRegex)).Handler(tcpHandler)
-	r.Host(fmt.Sprintf("pwd{alias:%s}-{session:%s}.{tld:.*}", config.AliasnameRegex, config.AliasSessionRegex)).Handler(tcpHandler)
+	r.Host(fmt.Sprintf("{subdomain:.*}{%s}{node:%s}-{port:%s}.{tld:.*}", pwd, config.PWDHostnameRegex, config.PortRegex)).Handler(tcpHandler)
+	r.Host(fmt.Sprintf("{subdomain:.*}{%s}{node:%s}.{tld:.*}", pwd, config.PWDHostnameRegex)).Handler(tcpHandler)
+	r.Host(fmt.Sprintf("{%s}{alias:%s}-{session:%s}-{port:%s}.{tld:.*}", pwd, config.AliasnameRegex, config.AliasSessionRegex, config.PortRegex)).Handler(tcpHandler)
+	r.Host(fmt.Sprintf("{%s}{alias:%s}-{session:%s}.{tld:.*}", pwd, config.AliasnameRegex, config.AliasSessionRegex)).Handler(tcpHandler)
 	r.HandleFunc("/ping", handlers.Ping).Methods("GET")
 	corsRouter.HandleFunc("/instances/images", handlers.GetInstanceImages).Methods("GET")
 	corsRouter.HandleFunc("/sessions/{sessionId}", handlers.GetSession).Methods("GET")
