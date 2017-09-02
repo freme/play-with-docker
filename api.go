@@ -61,9 +61,11 @@ func main() {
         cmd.Stdout = &out
         err := cmd.Run()
 	if err != nil {
+                log.Fatal("exec.Command of docker ps failed")
 		log.Fatal(err)
 	}
         pwd := out.String()
+        fmt.Printf("pwd container name: %q\n", out.String())
 
 	// Specific routes
 	r.Host(fmt.Sprintf("{subdomain:.*}{%s}{node:%s}-{port:%s}.{tld:.*}", pwd, config.PWDHostnameRegex, config.PortRegex)).Handler(tcpHandler)
